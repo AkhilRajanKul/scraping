@@ -1,0 +1,235 @@
+import os
+import time
+import random
+import pandas as pd
+from io import StringIO
+from bs4 import BeautifulSoup
+from fake_useragent import UserAgent
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import (
+    TimeoutException, StaleElementReferenceException, NoSuchElementException
+)
+import undetected_chromedriver as uc
+from selenium_stealth import stealth
+from selenium.webdriver.chrome.options import Options
+BASE_URL = "https://affiliate.winfix.fun"
+USERNAME = "Winfix_Billy"
+PASSWORD = "OydqyaYch4FV8"
+def human_delay(min_seconds=2, max_seconds=5):
+    delay = random.uniform(min_seconds, max_seconds)
+    time.sleep(delay)
+def get_driver():
+    ua = UserAgent()
+    options = uc.ChromeOptions()
+
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument(f"--user-agent={ua.random}")
+
+    # 🔥 ENABLE NETWORK LOGGING
+    options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
+
+    driver = uc.Chrome(version_main=146, options=options)
+
+    stealth(
+        driver,
+        languages=["en-US", "en"],
+        vendor="Google Inc.",
+        platform="Win32",
+        webgl_vendor="Intel Inc.",
+        renderer="Intel Iris OpenGL",
+        fix_hairline=True,
+    )
+    return driver
+driver = get_driver()
+
+website = ''
+driver.get(website)
+human_delay()
+driver.find_element(By.XPATH, '//*[@id="root"]/div[1]/div[2]/div/form/span/div/div/input').send_keys("")
+human_delay()
+driver.find_element(By.XPATH, '//*[@id="standard-adornment-password"]').send_keys("")
+human_delay()
+driver.find_element(By.XPATH, '//*[@id="root"]/div[1]/div[2]/div/form/div[5]/button/span[1]').click()
+wait = WebDriverWait(driver, 10)
+human_delay()
+user_mgmt_button = wait.until(
+        EC.element_to_be_clickable((By.XPATH, '//*[@id="root"]/ion-app/div[3]/ion-toolbar/div/div/ion-header/div/a[2]/span/span[1]'))
+    )
+driver.execute_script("arguments[0].click();", user_mgmt_button)
+import json
+import requests
+def get_jwt_from_browser(driver):
+    # Try localStorage
+    token = driver.execute_script("""
+        return window.localStorage;
+    """)
+
+    for key in token:
+        if "token" in key.lower() or "auth" in key.lower():
+            print(f"✅ Found in localStorage: {key}")
+            return token[key]
+
+    # Try sessionStorage
+    token = driver.execute_script("""
+        return window.sessionStorage;
+    """)
+
+    for key in token:
+        if "token" in key.lower() or "auth" in key.lower():
+            print(f"✅ Found in sessionStorage: {key}")
+            return token[key]
+
+    return None
+def get_cookie_string(driver):
+    cookies = driver.get_cookies()
+    
+    cookie_string = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
+    
+    return cookie_string
+time.sleep(5)  # after full navigation
+jwt_token = get_jwt_from_browser(driver)
+cookie_string = get_cookie_string(driver)
+
+print("JWT:", jwt_token)
+print("Cookies:", cookie_string)
+
+
+url = "https://reporting.uvwin2024.co/reports/v2/affiliate-report/users"
+
+payload = {
+    "user": "",
+    "parentId": 17021506041,
+    "sortOrder": "",
+    "pageSize": 25
+}
+
+# ✅ use session with extracted auth
+session = requests.Session()
+
+session.headers.update({
+    "Authorization": jwt_token,
+    "Content-Type": "application/json;charset=UTF-8",
+    "Origin": "https://affiliate.winfix.fun",
+    "Referer": "https://affiliate.winfix.fun/",
+    "User-Agent": "Mozilla/5.0",
+    "Cookie": cookie_string
+})
+
+all_users = []
+page = 1
+
+while True:
+    
+    response = session.post(url, json=payload)
+
+    print(f"Page {page} Status:", response.status_code)
+
+    time.sleep(random.uniform(1.5, 3))
+
+    if response.status_code == 401:
+        print("❌ JWT expired — need re-login")
+        break
+
+    if response.status_code != 200:
+        print("❌ Error:", response.text)
+        break
+
+    data = response.json()
+    users = data.get("userDetailsList", [])
+
+    all_users.extend(users)
+
+    print(f"Fetched {len(users)} users (Total: {len(all_users)})")
+
+    next_token = data.get("nextPageToken")
+
+    if not next_token:
+        break
+
+    payload["pageToken"] = next_token
+    page += 1
+
+# ✅ DataFrame
+df = pd.DataFrame(all_users)
+
+print("✅ Final DataFrame")
+print(df.head())
+df
+url = "https://reporting.uvwin2024.co/reports/v2/affiliate-report/users"
+
+payload = {
+    "user": "",
+    "parentId": 17177263119,
+    "sortOrder": "",
+    "pageSize": 25
+}
+
+# ✅ use session with extracted auth
+session = requests.Session()
+
+session.headers.update({
+    "Authorization": jwt_token,
+    "Content-Type": "application/json;charset=UTF-8",
+    "Origin": "https://affiliate.winfix.fun",
+    "Referer": "https://affiliate.winfix.fun/",
+    "User-Agent": "Mozilla/5.0",
+    "Cookie": cookie_string
+})
+
+all_users = []
+page = 1
+
+while True:
+    response = session.post(url, json=payload)
+
+    print(f"Page {page} Status:", response.status_code)
+
+    time.sleep(random.uniform(1.5, 3))
+    
+    if response.status_code != 200:
+        print("❌ Error:", response.text)
+        break
+
+    data = response.json()
+    users = data.get("userDetailsList", [])
+
+    all_users.extend(users)
+
+    print(f"Fetched {len(users)} users (Total: {len(all_users)})")
+
+    next_token = data.get("nextPageToken")
+
+    if not next_token:
+        break
+
+    payload["pageToken"] = next_token
+    page += 1
+
+# ✅ DataFrame
+df2 = pd.DataFrame(all_users)
+
+print("✅ Final DataFrame")
+print(df.head())
+df2
+df_all = pd.concat([df, df2], ignore_index=True)
+df_all
+df_all.columns
+# Data processing
+df_all['Aggregate'] = df_all[['availableBalance', 'myPLPoints', 'exposure', 'lifeTimeProfit']].sum(axis=1)
+df_final = df_all[df_all['Aggregate'] == 0].copy()
+df_final['language'] = "Hindi"
+df_final['Website Name'] = "winfix.fun"
+df_final['Account Id'] = df_final['username']
+df_final['Lead Source 2'] = "Billy-META"
+df_final = df_final[['phoneNumber', 'username', 'Lead Source 2', 'language', 'Website Name', 'Account Id', 'createTime']]
+
+df_final['username'] = df_final['username'].str[:-4]
+df_final['Account Id'] = df_final['Account Id'].str[:-4]
+df_final
